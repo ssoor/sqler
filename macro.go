@@ -11,23 +11,31 @@ import (
 	"github.com/jmoiron/sqlx"
 )
 
+type MacroInput struct {
+	Bind       map[string]string `hcl:"bind,optional"`
+	Validators map[string]string `hcl:"validators,optional"`
+}
+type MacroOutput struct {
+	Transformer string `hcl:"transformer,optional"`
+}
+
 // Macro - a macro configuration
 type Macro struct {
-	Methods     []string
-	Include     []string
-	Validators  map[string]string
-	Authorizer  string
-	Bind        map[string]string
-	Exec        string
-	Aggregate   []string
-	Transformer string
+	Name        string `hcl:",label"`
+	MacroInput  `hcl:"input,block"`
+	MacroOutput `hcl:"output,block"`
+	Methods     []string `hcl:"methods,optional"`
+	Include     []string `hcl:"include,optional"`
+	Authorizer  string   `hcl:"authorizer,optional"`
+	Exec        string   `hcl:"exec,optional"`
+	Aggregate   []string `hcl:"aggregate,optional"`
 
-	Trigger struct {
-		Webhook string
-		Macro   string
-	}
+	Trigger *struct {
+		Webhook string `hcl:"webhook,optional"`
+		Macro   string `hcl:"macro,optional"`
+	} `hcl:"trigger,block"`
 
-	Cron string
+	Cron string `hcl:"cron,optional"`
 
 	name    string
 	manager *Manager
@@ -74,27 +82,29 @@ func (m *Macro) Call(input map[string]interface{}) (interface{}, error) {
 		return err.Error(), err
 	}
 
-	go (func() {
-		if m.Trigger.Webhook != "" {
-			_, err := resty.New().R().SetDoNotParseResponse(true).SetHeader("Content-Type", "application/json").SetBody(map[string]interface{}{
-				"payload": out,
-			}).Post(m.Trigger.Webhook)
+	if m.Trigger != nil {
+		go (func() {
+			if m.Trigger.Webhook != "" {
+				_, err := resty.New().R().SetDoNotParseResponse(true).SetHeader("Content-Type", "application/json").SetBody(map[string]interface{}{
+					"payload": out,
+				}).Post(m.Trigger.Webhook)
 
-			if err != nil {
-				color.Red("[X]- " + err.Error())
+				if err != nil {
+					color.Red("[X]- " + err.Error())
+				}
 			}
-		}
 
-		if subm := m.manager.Get(m.Trigger.Macro); subm != nil {
-			_, err := subm.Call(map[string]interface{}{
-				"payload": out,
-			})
+			if subm := m.manager.Get(m.Trigger.Macro); subm != nil {
+				_, err := subm.Call(map[string]interface{}{
+					"payload": out,
+				})
 
-			if err != nil {
-				color.Red("[X]- " + err.Error())
+				if err != nil {
+					color.Red("[X]- " + err.Error())
+				}
 			}
-		}
-	})()
+		})()
+	}
 
 	return out, nil
 }

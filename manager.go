@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -13,7 +12,7 @@ import (
 	"text/template"
 
 	"github.com/alash3al/go-color"
-	"github.com/hashicorp/hcl"
+	"github.com/hashicorp/hcl/v2/hclsimple"
 	"github.com/robfig/cron/v3"
 )
 
@@ -23,6 +22,12 @@ type Manager struct {
 	compiled *template.Template
 	cron     *cron.Cron
 	sync.RWMutex
+}
+
+type Config struct {
+	Crons      []Macro `hcl:"cron,block"`
+	Macros     []Macro `hcl:"macro,block"`
+	Aggregates []Macro `hcl:"aggregate,block"`
 }
 
 // NewManager - initialize a new manager
@@ -40,17 +45,17 @@ func NewManager(configpath string) (*Manager, error) {
 		}
 
 		for _, file := range files {
-			data, err := ioutil.ReadFile(file)
-			if err != nil {
+			var config Config
+			if err := hclsimple.DecodeFile(file, nil, &config); err != nil {
 				return nil, err
 			}
 
-			var config map[string]*Macro
-			if err := hcl.Unmarshal(data, &config); err != nil {
-				return nil, err
-			}
+			fmt.Printf("%+#v\n", config)
 
-			for k, v := range config {
+			vs := append(append(config.Crons, config.Macros...), config.Aggregates...)
+			for i := range vs {
+				v := &vs[i]
+				k := v.Name
 				manager.macros[k] = v
 				_, err := manager.compiled.New(k).Parse(v.Exec)
 				if err != nil {
@@ -58,8 +63,10 @@ func NewManager(configpath string) (*Manager, error) {
 				}
 				v.manager = manager
 				v.name = k
-				v.Trigger.Webhook = strings.TrimSpace(v.Trigger.Webhook)
-				v.Trigger.Macro = strings.TrimSpace(v.Trigger.Macro)
+				if v.Trigger != nil {
+					v.Trigger.Webhook = strings.TrimSpace(v.Trigger.Webhook)
+					v.Trigger.Macro = strings.TrimSpace(v.Trigger.Macro)
+				}
 
 				if strings.TrimSpace(v.Cron) != "" {
 					(func(v *Macro) {

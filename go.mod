@@ -13,8 +13,7 @@ require (
 	github.com/go-resty/resty/v2 v2.1.0
 	github.com/go-sourcemap/sourcemap v2.1.2+incompatible // indirect
 	github.com/go-sql-driver/mysql v1.4.1
-	github.com/google/go-cmp v0.3.1 // indirect
-	github.com/hashicorp/hcl v1.0.0
+	github.com/hashicorp/hcl/v2 v2.17.0
 	github.com/jmoiron/sqlx v1.2.0
 	github.com/labstack/echo v3.3.5+incompatible
 	github.com/labstack/gommon v0.2.8 // indirect

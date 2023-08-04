@@ -14,8 +14,13 @@ func initJSVM(ctx map[string]interface{}) *goja.Runtime {
 	for k, v := range ctx {
 		vm.Set(k, v)
 	}
+	console := vm.NewObject()
+	console.Set("log", log.Println)
+
 	vm.Set("fetch", jsFetchfunc)
 	vm.Set("log", log.Println)
+	vm.Set("console", console)
+
 	return vm
 }
 
